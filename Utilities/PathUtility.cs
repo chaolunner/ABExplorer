@@ -1,20 +1,12 @@
 ﻿using UnityEngine;
-using System.IO;
 
-namespace UniEasy
+namespace ABExplorer.Utilities
 {
-    public partial class PathsUtility
+    public class PathUtility
     {
-        public static string AB_RESOURCES = "AB_Resources";
-
-        public static string[] GetABResourcesPaths()
+        public static string GetAbOutPath()
         {
-            return Directory.GetDirectories(Application.dataPath, AB_RESOURCES, SearchOption.AllDirectories);
-        }
-
-        public static string GetABOutPath()
-        {
-            return GetPlatformPath() + "/" + GetPlatformName();
+            return string.Format("{0}/{1}", GetPlatformPath(), GetPlatformName());
         }
 
         private static string GetPlatformPath()
@@ -32,8 +24,6 @@ namespace UniEasy
                 case RuntimePlatform.IPhonePlayer:
                 case RuntimePlatform.Android:
                     platformPath = Application.persistentDataPath;
-                    break;
-                default:
                     break;
             }
 
@@ -60,8 +50,6 @@ namespace UniEasy
                 case UnityEditor.BuildTarget.Android:
                     platformName = "Android";
                     break;
-                default:
-                    break;
             }
 #else
             switch (Application.platform)
@@ -80,8 +68,6 @@ namespace UniEasy
                 case RuntimePlatform.Android:
                     platformName = "Android";
                     break;
-                default:
-                    break;
             }
 #endif
             return platformName;
@@ -89,34 +75,32 @@ namespace UniEasy
 
         public static string GetWWWPath()
         {
-            if (HttpServerSettings.GetOrCreateSettings().IsEnable)
+            var outPath = string.Empty;
+
+            if (AbExplorerSettings.Settings.playMode == PlayMode.PackedPlayMode)
             {
-                return HttpServerSettings.GetOrCreateSettings().URL + "/" + GetPlatformName();
+                outPath = AbExplorerSettings.Settings.URL + "/" + GetPlatformName();
             }
             else
             {
-                var outPath = string.Empty;
-
                 switch (Application.platform)
                 {
                     case RuntimePlatform.WindowsPlayer:
                     case RuntimePlatform.OSXPlayer:
                     case RuntimePlatform.WindowsEditor:
                     case RuntimePlatform.OSXEditor:
-                        outPath = "file://" + GetABOutPath();
+                        outPath = "file://" + GetAbOutPath();
                         break;
                     case RuntimePlatform.Android:
-                        outPath = "jar:file://" + GetABOutPath();
+                        outPath = "jar:file://" + GetAbOutPath();
                         break;
                     case RuntimePlatform.IPhonePlayer:
-                        outPath = GetABOutPath() + "/Raw/";
-                        break;
-                    default:
+                        outPath = GetAbOutPath() + "/Raw/";
                         break;
                 }
-
-                return outPath;
             }
+
+            return outPath;
         }
     }
 }
