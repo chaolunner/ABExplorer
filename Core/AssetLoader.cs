@@ -1,4 +1,6 @@
 ﻿using System.Collections;
+using System.Threading.Tasks;
+using ABExplorer.Extensions;
 using UnityEngine;
 
 namespace ABExplorer.Core
@@ -17,7 +19,7 @@ namespace ABExplorer.Core
             }
             else
             {
-                Debug.LogError(string.Format("{0}/AssetLoader() param is null, please check it!", GetType()));
+                Debug.LogError($"{GetType()}/AssetLoader() param is null, please check it!");
             }
         }
 
@@ -40,7 +42,30 @@ namespace ABExplorer.Core
             }
             else if (asset == null)
             {
-                Debug.LogError(string.Format("{0}/LoadAsset<T>() return value is null, please check it!", GetType()));
+                Debug.LogError($"{GetType()}/LoadAsset<T>() return value is null, please check it!");
+            }
+
+            return asset;
+        }
+
+        public async Task<T> LoadAssetAsync<T>(string assetName, bool isCache) where T : Object
+        {
+            if (_cache.Contains(assetName))
+            {
+                return _cache[assetName] as T;
+            }
+
+            var request = _assetBundle.LoadAssetAsync<T>(assetName);
+            await request;
+
+            var asset = request.asset as T;
+            if (asset != null && isCache)
+            {
+                _cache.Add(assetName, asset);
+            }
+            else if (asset == null)
+            {
+                Debug.LogError($"{GetType()}/LoadAssetAsync<T>() return value is null, please check it!");
             }
 
             return asset;

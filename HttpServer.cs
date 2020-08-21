@@ -14,14 +14,13 @@ namespace ABExplorer
         private string _abOutPath = "";
         private HttpListener _httpListener;
         private Thread _listenerThread;
-        private static AbExplorerSettings _abExplorerSettings;
 
 #if UNITY_EDITOR
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         public static void Initialize()
         {
-            _abExplorerSettings = AbExplorerSettings.Settings;
-            if (_abExplorerSettings.playMode == PlayMode.PackedPlayMode)
+            var settings = AbExplorerSettings.Instance;
+            if (settings.playMode == PlayMode.PackedPlayMode)
             {
                 var server = new HttpServer();
                 server.Start();
@@ -34,7 +33,7 @@ namespace ABExplorer
             _platformName = PathUtility.GetPlatformName();
             _abOutPath = PathUtility.GetAbOutPath();
             _httpListener = new HttpListener();
-            _httpListener.Prefixes.Add(_abExplorerSettings.URL);
+            _httpListener.Prefixes.Add(AbExplorerSettings.Instance.URL);
             _httpListener.AuthenticationSchemes = AuthenticationSchemes.Anonymous;
             _httpListener.Start();
 
@@ -77,8 +76,8 @@ namespace ABExplorer
 #if UNITY_EDITOR
                     for (int j = 0; j < context.Request.QueryString.AllKeys[i].Length; j++)
                     {
-                        Debug.Log(string.Format("Key: {0}, Value: {1}", context.Request.QueryString.AllKeys[i],
-                            context.Request.QueryString.AllKeys[i][j]));
+                        Debug.Log(
+                            $"Key: {context.Request.QueryString.AllKeys[i]}, Value: {context.Request.QueryString.AllKeys[i][j]}");
                     }
 #endif
                 }

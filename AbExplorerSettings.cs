@@ -19,36 +19,48 @@ namespace ABExplorer
         public string address = "localhost";
         public int port = 4747;
 
-        public string URL => string.Format("http://{0}:{1}/", address, port);
+        public string URL => $"http://{address}:{port}/";
 
         private const string AbExplorerSettingsPath = "Assets/ABExplorer/Resources/ABExplorerSettings.asset";
 
-        public static AbExplorerSettings Settings
+        private static AbExplorerSettings _instance;
+
+        public static AbExplorerSettings Instance
         {
             get
             {
-                var settings = Resources.Load<AbExplorerSettings>("ABExplorerSettings");
-#if UNITY_EDITOR
-                if (settings == null)
+                if (_instance == null)
                 {
-                    settings = CreateInstance<AbExplorerSettings>();
-                    if (!Directory.Exists(AbExplorerSettingsPath))
-                    {
-                        Directory.CreateDirectory(AbExplorerSettingsPath);
-                    }
-
-                    AssetDatabase.CreateAsset(settings, AbExplorerSettingsPath);
-                    AssetDatabase.SaveAssets();
+                    Initialize();
                 }
-#endif
-                return settings;
+
+                return _instance;
             }
+        }
+
+        [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+        public static void Initialize()
+        {
+            _instance = Resources.Load<AbExplorerSettings>("ABExplorerSettings");
+#if UNITY_EDITOR
+            if (_instance == null)
+            {
+                _instance = CreateInstance<AbExplorerSettings>();
+                if (!Directory.Exists(AbExplorerSettingsPath))
+                {
+                    Directory.CreateDirectory(AbExplorerSettingsPath);
+                }
+
+                AssetDatabase.CreateAsset(_instance, AbExplorerSettingsPath);
+                AssetDatabase.SaveAssets();
+            }
+#endif
         }
 
 #if UNITY_EDITOR
         public static SerializedObject ToSerializedObject()
         {
-            return new SerializedObject(Settings);
+            return new SerializedObject(Instance);
         }
 #endif
     }

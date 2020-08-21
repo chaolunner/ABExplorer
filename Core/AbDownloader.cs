@@ -1,9 +1,10 @@
-﻿using ABExplorer.Utilities;
+﻿using System;
+using ABExplorer.Utilities;
 using UnityEngine;
 
 namespace ABExplorer.Core
 {
-    public class AbDownloader
+    public class AbDownloader : IDisposable
     {
         public ulong contentSize;
         public ulong downloadedSize;
@@ -16,7 +17,14 @@ namespace ABExplorer.Core
         public AbDownloader(string abName, Hash128 abHash)
         {
             _abHash = abHash;
-            _abDownLoadPath = string.Format("{0}/{1}", PathUtility.GetWWWPath(), abName);
+            _abDownLoadPath = $"{PathUtility.GetWWWPath()}/{abName}";
+        }
+
+        public void Dispose()
+        {
+            contentSize = 0;
+            downloadedSize = 0;
+            progress = 0;
         }
     }
 }

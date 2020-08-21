@@ -6,7 +6,7 @@ namespace ABExplorer.Utilities
     {
         public static string GetAbOutPath()
         {
-            return string.Format("{0}/{1}", GetPlatformPath(), GetPlatformName());
+            return $"{GetPlatformPath()}/{GetPlatformName()}";
         }
 
         private static string GetPlatformPath()
@@ -34,24 +34,6 @@ namespace ABExplorer.Utilities
         {
             var platformName = string.Empty;
 
-#if UNITY_EDITOR
-            switch (UnityEditor.EditorUserBuildSettings.activeBuildTarget)
-            {
-                case UnityEditor.BuildTarget.StandaloneWindows:
-                case UnityEditor.BuildTarget.StandaloneWindows64:
-                    platformName = "Windows";
-                    break;
-                case UnityEditor.BuildTarget.StandaloneOSX:
-                    platformName = "OSX";
-                    break;
-                case UnityEditor.BuildTarget.iOS:
-                    platformName = "iOS";
-                    break;
-                case UnityEditor.BuildTarget.Android:
-                    platformName = "Android";
-                    break;
-            }
-#else
             switch (Application.platform)
             {
                 case RuntimePlatform.WindowsPlayer:
@@ -69,7 +51,7 @@ namespace ABExplorer.Utilities
                     platformName = "Android";
                     break;
             }
-#endif
+
             return platformName;
         }
 
@@ -77,9 +59,9 @@ namespace ABExplorer.Utilities
         {
             var outPath = string.Empty;
 
-            if (AbExplorerSettings.Settings.playMode == PlayMode.PackedPlayMode)
+            if (AbExplorerSettings.Instance.playMode == PlayMode.PackedPlayMode)
             {
-                outPath = AbExplorerSettings.Settings.URL + "/" + GetPlatformName();
+                outPath = AbExplorerSettings.Instance.URL + "/" + GetPlatformName();
             }
             else
             {

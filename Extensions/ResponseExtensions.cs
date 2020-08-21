@@ -39,7 +39,7 @@ namespace ABExplorer.Extensions
                 if (download)
                 {
                     response.AddHeader("Content-disposition",
-                        string.Format("attachment; filename={0}", Path.GetFileName(path)));
+                        $"attachment; filename={Path.GetFileName(path)}");
                 }
 
                 byte[] buffer = new byte[64 * 1024];

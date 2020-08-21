@@ -1,9 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using UnityEngine.Networking;
-using System.Collections;
 using UnityEngine;
 using System.IO;
+using System.Threading.Tasks;
+using ABExplorer.Extensions;
 using ABExplorer.Utilities;
 
 namespace ABExplorer.Core
@@ -20,11 +21,11 @@ namespace ABExplorer.Core
         public AbManifestLoader()
         {
             var manifestName = PathUtility.GetPlatformName();
-            _manifestRemotePath = string.Format("{0}/{1}", PathUtility.GetWWWPath(), manifestName);
+            _manifestRemotePath = $"{PathUtility.GetWWWPath()}/{manifestName}";
 #if UNITY_EDITOR
-            _manifestLocalPath = string.Format("{0}Cache/{1}", PathUtility.GetAbOutPath(), manifestName);
+            _manifestLocalPath = $"{PathUtility.GetAbOutPath()}/Cache/{manifestName}";
 #else
-            _manifestLocalPath = string.Format("{0}/{1}", PathUtility.GetAbOutPath(), manifestName);
+            _manifestLocalPath = $"{PathUtility.GetAbOutPath()}/{manifestName}";
 #endif
             _manifest = null;
             _abReadManifest = null;
@@ -32,16 +33,15 @@ namespace ABExplorer.Core
             IsDone = false;
         }
 
-        public IEnumerator LoadManifestAsync()
+        public async Task LoadManifestAsync()
         {
             using (var uwr = UnityWebRequest.Get(_manifestRemotePath))
             {
-                yield return uwr.SendWebRequest();
+                await uwr.SendWebRequest();
                 if (uwr.isNetworkError || uwr.isHttpError)
                 {
-                    Debug.Log(string.Format(
-                        "{0}/LoadManifestAsync()/UnityWebRequest download error, please check it! Manifest URL: {1}, Error Message: {2}",
-                        GetType(), _manifestRemotePath, uwr.error));
+                    Debug.Log(
+                        $"{GetType()}/LoadManifestAsync()/UnityWebRequest download error, please check it! Manifest URL: {_manifestRemotePath}, Error Message: {uwr.error}");
                 }
                 else
                 {
@@ -60,9 +60,8 @@ namespace ABExplorer.Core
                     }
                     catch (Exception e)
                     {
-                        Debug.LogError(string.Format(
-                            "{0}/LoadManifestAsync()/Failed to save manifest data, please check it! Manifest Path: {1}, Error Message: {2}",
-                            GetType(), _manifestLocalPath, e));
+                        Debug.LogError(
+                            $"{GetType()}/LoadManifestAsync()/Failed to save manifest data, please check it! Manifest Path: {_manifestLocalPath}, Error Message: {e}");
                     }
                 }
             }
@@ -70,7 +69,7 @@ namespace ABExplorer.Core
             if (File.Exists(_manifestLocalPath))
             {
                 var abCreateRequest = AssetBundle.LoadFromFileAsync(_manifestLocalPath);
-                yield return abCreateRequest;
+                await abCreateRequest;
                 _abReadManifest = abCreateRequest.assetBundle;
                 _manifest = _abReadManifest.LoadAsset(AbDefine.assetbundleManifest) as AssetBundleManifest;
                 assetBundleList.AddRange(_manifest.GetAllAssetBundles());
@@ -85,8 +84,7 @@ namespace ABExplorer.Core
                 return _manifest;
             }
 
-            Debug.LogError(String.Format("{0}/GetAssetBundleManifest()/_manifest(field) is null, please check it!",
-                GetType()));
+            Debug.LogError($"{GetType()}/GetAssetBundleManifest()/_manifest(field) is null, please check it!");
             return null;
         }
 

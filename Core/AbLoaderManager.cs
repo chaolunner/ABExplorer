@@ -151,12 +151,18 @@ namespace ABExplorer.Core
             return Mathf.RoundToInt(GetDownloadProgress() * 100);
         }
 
-        public static void Dispose(string abName)
+        public static void Unload(string abName)
         {
             if (_loaders.ContainsKey(abName))
             {
                 _loaders[abName].Dispose();
                 _loaders.Remove(abName);
+            }
+
+            if (_downloaders.ContainsKey(abName))
+            {
+                _downloaders[abName].Dispose();
+                _downloaders.Remove(abName);
             }
         }
     }

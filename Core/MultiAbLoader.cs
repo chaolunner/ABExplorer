@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-using System.Collections;
+using System.Threading.Tasks;
 using UnityEngine;
 
 namespace ABExplorer.Core
@@ -19,17 +19,17 @@ namespace ABExplorer.Core
             _onLoadCompleted = onLoadCompleted;
         }
 
-        public IEnumerator LoadAbAsync(string abName)
+        public async Task LoadAbAsync(string abName)
         {
-            yield return LoadAbByRecursiveAsync(abName);
+            await LoadAbByRecursiveAsync(abName);
             _onLoadCompleted?.Invoke(abName);
         }
 
-        private IEnumerator LoadAbByRecursiveAsync(string abName)
+        private async Task LoadAbByRecursiveAsync(string abName)
         {
             if (_relations == null)
             {
-                yield break;
+                return;
             }
 
             if (!_relations.ContainsKey(abName))
@@ -42,12 +42,12 @@ namespace ABExplorer.Core
             for (int i = 0; i < dependencies.Length; i++)
             {
                 relation.AddDependence(dependencies[i]);
-                yield return LoadReferenceByRecursiveAsync(dependencies[i], abName);
+                await LoadReferenceByRecursiveAsync(dependencies[i], abName);
             }
 
             if (_loaders == null)
             {
-                yield break;
+                return;
             }
 
             if (!_loaders.ContainsKey(abName))
@@ -55,14 +55,14 @@ namespace ABExplorer.Core
                 _loaders.Add(abName, AbLoaderManager.Create(abName, _manifestLoader.GetAssetBundleHash(abName)));
             }
 
-            yield return _loaders[abName].LoadAsync();
+            await _loaders[abName].LoadAsync();
         }
 
-        private IEnumerator LoadReferenceByRecursiveAsync(string abName, string refAbName)
+        private async Task LoadReferenceByRecursiveAsync(string abName, string refAbName)
         {
             if (_relations == null)
             {
-                yield break;
+                return;
             }
 
             if (_relations.ContainsKey(abName))
@@ -74,7 +74,7 @@ namespace ABExplorer.Core
                 var relation = new AbRelation(abName);
                 relation.AddReference(refAbName);
                 _relations.Add(abName, relation);
-                yield return LoadAbByRecursiveAsync(abName);
+                await LoadAbByRecursiveAsync(abName);
             }
         }
 
@@ -85,9 +85,20 @@ namespace ABExplorer.Core
                 return _loaders[abName].LoadAsset<T>(assetName, isCache);
             }
 
-            Debug.LogError(string.Format(
-                "{0}/LoadAsset() can't found the AssetBundle, can't load the asset, plase check it! abName = {1}, assetName = {2}",
-                GetType(), abName, assetName));
+            Debug.LogError(
+                $"{GetType()}/LoadAsset<T>() can't found the AssetBundle, can't load the asset, plase check it! abName = {abName}, assetName = {assetName}");
+            return null;
+        }
+
+        public Task<T> LoadAssetAsync<T>(string abName, string assetName, bool isCache) where T : Object
+        {
+            if (_loaders.ContainsKey(abName))
+            {
+                return _loaders[abName].LoadAssetAsync<T>(assetName, isCache);
+            }
+
+            Debug.LogError(
+                $"{GetType()}/LoadAssetAsync<T>() can't found the AssetBundle, can't load the asset, plase check it! abName = {abName}, assetName = {assetName}");
             return null;
         }
 
@@ -98,7 +109,7 @@ namespace ABExplorer.Core
                 var e = _loaders.GetEnumerator();
                 while (e.MoveNext())
                 {
-                    AbLoaderManager.Dispose(e.Current.Key);
+                    AbLoaderManager.Unload(e.Current.Key);
                 }
 
                 e.Dispose();

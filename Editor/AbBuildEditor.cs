@@ -11,8 +11,8 @@ namespace ABExplorer.Editor
         public static void PrepareForBuild()
         {
             AssetDatabase.RemoveUnusedAssetBundleNames();
-
-            foreach (var rootPath in AbResources.GetAllPaths())
+            AbResources.GetAllPaths(out var absPaths, out _);
+            foreach (var rootPath in absPaths)
             {
                 var rootInfo = new DirectoryInfo(rootPath);
                 var sceneInfos = rootInfo.GetDirectories();

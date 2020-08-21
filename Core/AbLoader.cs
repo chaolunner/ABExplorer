@@ -1,5 +1,5 @@
-﻿using UnityEngine.Networking;
-using System.Collections;
+﻿using System.Threading.Tasks;
+using UnityEngine.Networking;
 using ABExplorer.Utilities;
 using UnityEngine;
 
@@ -26,20 +26,20 @@ namespace ABExplorer.Core
             _onLoadStart = onLoadStart;
             _onLoadUpdate = onLoadUpdate;
             _onLoadCompleted = onLoadCompleted;
-            _abDownLoadPath = string.Format("{0}/{1}", PathUtility.GetWWWPath(), abName);
+            _abDownLoadPath = $"{PathUtility.GetWWWPath()}/{abName}";
         }
 
-        public IEnumerator LoadAsync()
+        public async Task LoadAsync()
         {
             while (_lock)
             {
-                yield return null;
+                await Task.Yield();
             }
 
             if (_assetLoader != null)
             {
                 _onLoadCompleted?.Invoke(_abName);
-                yield break;
+                return;
             }
 
             _lock = true;
@@ -53,14 +53,13 @@ namespace ABExplorer.Core
                 while (!uwr.isDone)
                 {
                     _onLoadUpdate?.Invoke(_abName, uwr);
-                    yield return null;
+                    await Task.Yield();
                 }
 
                 if (uwr.isNetworkError || uwr.isHttpError)
                 {
-                    Debug.Log(string.Format(
-                        "{0}/LoadAsync()/UnityWebRequest download error, please check it! AssetBundle URL: {1}, Error Message: {2}",
-                        GetType(), _abDownLoadPath, uwr.error));
+                    Debug.Log(
+                        $"{GetType()}/LoadAsync()/UnityWebRequest download error, please check it! AssetBundle URL: {_abDownLoadPath}, Error Message: {uwr.error}");
                     _done = Caching.IsVersionCached(_abDownLoadPath, _abHash);
                 }
                 else
@@ -86,7 +85,18 @@ namespace ABExplorer.Core
                 return _assetLoader.LoadAsset<T>(assetName, isCache);
             }
 
-            Debug.LogError(string.Format("{0}/LoadAsset()/_assetLoader(field) is null, please check it!", GetType()));
+            Debug.LogError($"{GetType()}/LoadAsset<T>()/_assetLoader(field) is null, please check it!");
+            return null;
+        }
+
+        public Task<T> LoadAssetAsync<T>(string assetName, bool isCache) where T : Object
+        {
+            if (_assetLoader != null)
+            {
+                return _assetLoader.LoadAssetAsync<T>(assetName, isCache);
+            }
+
+            Debug.LogError($"{GetType()}/LoadAssetAsync<T>()/_assetLoader(field) is null, please check it!");
             return null;
         }
 
@@ -99,9 +109,7 @@ namespace ABExplorer.Core
             }
             else
             {
-                Debug.LogError(string.Format(
-                    "{0}/Unload()/_assetLoader(field) is null, please check it! abName: {1}", GetType(),
-                    _abName));
+                Debug.LogError($"{GetType()}/Unload()/_assetLoader(field) is null, please check it! abName: {_abName}");
             }
         }
 
@@ -114,8 +122,8 @@ namespace ABExplorer.Core
             }
             else
             {
-                Debug.LogError(string.Format("{0}/Dispose()/_assetLoader(field) is null, please check it! abName: {1}",
-                    GetType(), _abName));
+                Debug.LogError(
+                    $"{GetType()}/Dispose()/_assetLoader(field) is null, please check it! abName: {_abName}");
             }
         }
 
@@ -126,8 +134,7 @@ namespace ABExplorer.Core
                 return _assetLoader.GetAllAssetNames();
             }
 
-            Debug.LogError(string.Format("{0}/GetAllAssetNames()/_assetLoader(field) is null, please check it!",
-                GetType()));
+            Debug.LogError($"{GetType()}/GetAllAssetNames()/_assetLoader(field) is null, please check it!");
             return null;
         }
     }
