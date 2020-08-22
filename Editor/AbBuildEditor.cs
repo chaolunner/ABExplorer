@@ -120,11 +120,11 @@ namespace ABExplorer.Editor
                 Debug.Log("Cache is being used.");
             }
 
-            var outPath = PathUtility.GetAbOutPath() + "Cache";
-            if (!string.IsNullOrEmpty(outPath) && Directory.Exists(outPath))
+            var cachePath = PathUtility.GetAbCachePath();
+            if (!string.IsNullOrEmpty(cachePath) && Directory.Exists(cachePath))
             {
-                Directory.Delete(outPath, true);
-                File.Delete(outPath + ".meta");
+                Directory.Delete(cachePath, true);
+                File.Delete(cachePath + ".meta");
                 AssetDatabase.Refresh();
             }
         }

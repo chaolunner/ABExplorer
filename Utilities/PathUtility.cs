@@ -9,6 +9,11 @@ namespace ABExplorer.Utilities
             return $"{GetPlatformPath()}/{GetPlatformName()}";
         }
 
+        public static string GetAbCachePath()
+        {
+            return $"{Application.persistentDataPath}/{GetPlatformName()}";
+        }
+
         private static string GetPlatformPath()
         {
             var platformPath = string.Empty;

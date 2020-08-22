@@ -18,7 +18,7 @@ namespace ABExplorer
             if (manifestLoader == null)
             {
                 manifestLoader = new AbManifestLoader();
-                await manifestLoader.LoadManifestAsync();
+                await manifestLoader.LoadAsync();
             }
 
             while (!manifestLoader.IsDone)
