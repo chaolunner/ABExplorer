@@ -13,11 +13,33 @@ namespace ABExplorer
         private const string AbResourcesName = "AB_Resources";
 
         private static AbResources Instance => _instance ?? (_instance = new AbResources());
-
-        public static AsyncOperationHandle DownloadAbAsync()
+        
+        public static async Task CheckUpdateAsync(Task<bool> updateRequest = null)
         {
-            var handle = new AsyncOperationHandle(AssetBundleManager.Instance.DownloadAbAsync());
-            return handle;
+            var checkUpdateTask = AbManifestManager.Instance.CheckUpdateAsync();
+            await checkUpdateTask;
+            var isUpdate = false;
+            if (checkUpdateTask.Result == AbUpdateMode.Remind)
+            {
+                if (updateRequest != null)
+                {
+                    await updateRequest;
+                    isUpdate = updateRequest.Result;
+                }
+            }
+            else if (checkUpdateTask.Result == AbUpdateMode.Force)
+            {
+                isUpdate = true;
+            }
+
+            if (isUpdate)
+            {
+                await AbManifestManager.Instance.UpdateAsync();
+            }
+            else
+            {
+                await AbManifestManager.Instance.LoadAsync();
+            }
         }
 
         public static float GetDownloadProgress(out float downloadedSize, out float contentSize, out AbUnit unit)

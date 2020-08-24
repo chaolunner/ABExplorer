@@ -6,16 +6,16 @@ namespace ABExplorer.Core
 {
     public class MultiAbLoader : System.IDisposable
     {
-        private readonly AbManifestLoader _manifestLoader;
+        private readonly AbManifest _abManifest;
         private Dictionary<string, AbLoader> _loaders;
         private Dictionary<string, AbRelation> _relations;
         private AbLoadCompleted _onLoadCompleted;
 
-        public MultiAbLoader(AbManifestLoader manifestLoader, AbLoadCompleted onLoadCompleted = null)
+        public MultiAbLoader(AbManifest abManifest, AbLoadCompleted onLoadCompleted = null)
         {
             _loaders = new Dictionary<string, AbLoader>();
             _relations = new Dictionary<string, AbRelation>();
-            _manifestLoader = manifestLoader;
+            _abManifest = abManifest;
             _onLoadCompleted = onLoadCompleted;
         }
 
@@ -38,7 +38,7 @@ namespace ABExplorer.Core
             }
 
             var relation = _relations[abName];
-            var dependencies = _manifestLoader.GetAllDependencies(abName);
+            var dependencies = _abManifest.GetAllDependencies(abName);
             for (int i = 0; i < dependencies.Length; i++)
             {
                 relation.AddDependence(dependencies[i]);
@@ -52,7 +52,7 @@ namespace ABExplorer.Core
 
             if (!_loaders.ContainsKey(abName))
             {
-                _loaders.Add(abName, AbLoaderManager.Create(abName, _manifestLoader.GetAssetBundleHash(abName)));
+                _loaders.Add(abName, AbLoaderManager.Create(abName, _abManifest.GetAssetBundleHash(abName)));
             }
 
             await _loaders[abName].LoadAsync();

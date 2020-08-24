@@ -1,4 +1,5 @@
 ﻿using System.IO;
+using ABExplorer.Core;
 using UnityEditor;
 using UnityEngine;
 using ABExplorer.Utilities;
@@ -105,7 +106,34 @@ namespace ABExplorer.Editor
 
             BuildPipeline.BuildAssetBundles(outPath, options, target);
             AssetDatabase.Refresh();
+            BuildAbManifest();
             Debug.Log("Build AssetBundles has completed!");
+        }
+
+        private static void BuildAbManifest()
+        {
+            var assetBundle = AssetBundle.LoadFromFile($"{PathUtility.GetAbOutPath()}/{PathUtility.GetPlatformName()}");
+            var manifest = assetBundle.LoadAsset(AbDefine.assetbundleManifest) as AssetBundleManifest;
+            if (manifest != null)
+            {
+                var abManifest = new AbManifest();
+                var assetBundles = manifest.GetAllAssetBundles();
+                abManifest.abInfos = new AbInfo[assetBundles.Length];
+                for (int i = 0; i < assetBundles.Length; i++)
+                {
+                    var abName = assetBundles[i];
+                    var abHash = manifest.GetAssetBundleHash(abName);
+                    var abInfo = new AbInfo
+                    {
+                        abHash = abHash.ToString(),
+                        abSize = (ulong) new FileInfo($"{PathUtility.GetAbOutPath()}/{abName}").Length
+                    };
+                    abManifest.abInfos[i] = abInfo;
+                }
+
+                File.WriteAllText($"{PathUtility.GetAbOutPath()}/manifest", JsonUtility.ToJson(abManifest));
+                AssetDatabase.Refresh();
+            }
         }
 
         [MenuItem("ABExplorer/Clear Cache")]

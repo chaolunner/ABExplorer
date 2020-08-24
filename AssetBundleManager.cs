@@ -9,44 +9,9 @@ namespace ABExplorer
     {
         private static AssetBundleManager _instance;
         private readonly Dictionary<string, MultiAbLoader> _multiAbLoaders = new Dictionary<string, MultiAbLoader>();
-        public AbManifestLoader manifestLoader;
 
         public static AssetBundleManager Instance => _instance ?? (_instance = new AssetBundleManager());
-
-        private async Task LoadManifestAsync()
-        {
-            if (manifestLoader == null)
-            {
-                manifestLoader = new AbManifestLoader();
-                await manifestLoader.LoadAsync();
-            }
-
-            while (!manifestLoader.IsDone)
-            {
-                await Task.Yield();
-            }
-        }
-
-        public async Task DownloadAbAsync()
-        {
-            await LoadManifestAsync();
-
-            for (int i = 0; i < manifestLoader.assetBundleList.Count; i++)
-            {
-                var abName = manifestLoader.assetBundleList[i];
-                var sceneName = abName.Substring(0, abName.IndexOf('/'));
-                await LoadAbAsync(sceneName, abName);
-            }
-
-            while (AbLoaderManager.GetDownloadProgress() < 1)
-            {
-                await Task.Yield();
-            }
-
-            Resources.UnloadUnusedAssets();
-            System.GC.Collect();
-        }
-
+        
         public async Task LoadAbAsync(string sceneName, string abName, AbLoadCompleted onLoadCompleted = null)
         {
             if (string.IsNullOrEmpty(sceneName) || string.IsNullOrEmpty(abName))
@@ -56,19 +21,18 @@ namespace ABExplorer
                 {
                     Debug.LogError($"{GetType()}/LoadAsync() sceneName or abName is null, please check it!");
                 }
+
                 return;
             }
             
-            await LoadManifestAsync();
-
-            if (!manifestLoader.HasAssetBundle(abName))
+            if (!AbManifestManager.AbManifest.HasAssetBundle(abName))
             {
                 return;
             }
 
             if (!_multiAbLoaders.ContainsKey(sceneName))
             {
-                _multiAbLoaders.Add(sceneName, new MultiAbLoader(manifestLoader));
+                _multiAbLoaders.Add(sceneName, new MultiAbLoader(AbManifestManager.AbManifest));
             }
 
             var loader = _multiAbLoaders[sceneName];
@@ -95,8 +59,9 @@ namespace ABExplorer
                 $"{GetType()}/LoadAsset<T>() can't found the scene, can't load assets in the bundle, please check it! sceneName = {sceneName}");
             return null;
         }
-        
-        public Task<T> LoadAssetAsync<T>(string sceneName, string abName, string assetName, bool isCache) where T : Object
+
+        public Task<T> LoadAssetAsync<T>(string sceneName, string abName, string assetName, bool isCache)
+            where T : Object
         {
             if (_multiAbLoaders.ContainsKey(sceneName))
             {

@@ -18,4 +18,11 @@ namespace ABExplorer.Core
         MB = 2,
         GB = 3,
     }
+
+    public enum AbUpdateMode
+    {
+        None,
+        Force,
+        Remind,
+    }
 }

@@ -7,7 +7,7 @@ namespace ABExplorer
     {
         private async void Start()
         {
-            await AbResources.DownloadAbAsync().Task;
+            await AbResources.CheckUpdateAsync();
             for (int i = 0; i < SceneManager.sceneCount; i++)
             {
                 OnSceneLoaded(SceneManager.GetSceneAt(i), i == 0 ? LoadSceneMode.Single : LoadSceneMode.Additive);
