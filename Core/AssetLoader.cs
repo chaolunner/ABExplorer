@@ -7,8 +7,8 @@ namespace ABExplorer.Core
 {
     public class AssetLoader : System.IDisposable
     {
-        private readonly AssetBundle _assetBundle;
-        private readonly Hashtable _cache;
+        private AssetBundle _assetBundle;
+        private Hashtable _cache;
 
         public AssetLoader(AssetBundle bundle)
         {
@@ -74,6 +74,12 @@ namespace ABExplorer.Core
         public void Unload(bool unloadAllLoadedObjects)
         {
             _assetBundle.Unload(unloadAllLoadedObjects);
+            if (unloadAllLoadedObjects)
+            {
+                _cache.Clear();
+                _cache = null;
+                _assetBundle = null;
+            }
         }
 
         public void Dispose()

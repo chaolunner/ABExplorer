@@ -4,17 +4,11 @@ namespace ABExplorer.Core
 {
     public class AbRelation
     {
-        private string _abName;
         private readonly List<string> _dependenceAbList;
         private readonly List<string> _referenceAbList;
 
-        public AbRelation(string abName)
+        public AbRelation()
         {
-            if (!string.IsNullOrEmpty(abName))
-            {
-                _abName = abName;
-            }
-
             _dependenceAbList = new List<string>();
             _referenceAbList = new List<string>();
         }
@@ -27,7 +21,7 @@ namespace ABExplorer.Core
             }
         }
 
-        public bool RemoveDependece(string abName)
+        public bool RemoveDependence(string abName)
         {
             if (_dependenceAbList.Contains(abName))
             {

@@ -6,76 +6,54 @@ namespace ABExplorer.Core
 {
     public static class AbLoaderManager
     {
-        private static Dictionary<string, AbLoader> _loaders = new Dictionary<string, AbLoader>();
-        private static Dictionary<string, AbDownloader> _downloaders = new Dictionary<string, AbDownloader>();
+        private static Dictionary<Hash128, AbLoader> _loaders = new Dictionary<Hash128, AbLoader>();
+        private static Dictionary<Hash128, AbDownload> _downloads = new Dictionary<Hash128, AbDownload>();
 
-        public static AbLoader Create(string abName, Hash128 abHash = new Hash128())
+        public static AbLoader Create(string abName, Hash128 abHash)
         {
-            if (!_loaders.ContainsKey(abName))
+            if (!_downloads.ContainsKey(abHash))
             {
-                _loaders.Add(abName,
+                _downloads.Add(abHash, new AbDownload());
+            }
+
+            if (!_loaders.ContainsKey(abHash))
+            {
+                _loaders.Add(abHash,
                     new AbLoader(abName, abHash, OnDownloadStart, OnDownloadUpdate, OnDownloadCompleted));
             }
 
-            if (!_downloaders.ContainsKey(abName))
-            {
-                _downloaders.Add(abName, new AbDownloader(abName, abHash));
-            }
-
-            return _loaders[abName];
+            return _loaders[abHash];
         }
 
-        public static void OnDownloadStart(string abName, UnityWebRequest uwr)
+        public static void OnDownloadStart(Hash128 abHash)
         {
-            var downloader = _downloaders[abName];
-            var size = uwr.GetResponseHeader("Content-Length");
-            downloader.contentSize = System.Convert.ToUInt64(size);
-            downloader.downloadedSize = uwr.downloadedBytes;
-            if (downloader.contentSize > 0 && downloader.downloadedSize == downloader.contentSize)
-            {
-                downloader.downloadedSize = (ulong) (downloader.downloadedSize * 0.99f);
-            }
-
-            downloader.progress =
-                Mathf.Clamp(
-                    downloader.contentSize == 0
-                        ? uwr.downloadProgress
-                        : (float) downloader.downloadedSize / downloader.contentSize, 0, 0.99f);
+            var download = _downloads[abHash];
+            download.contentSize = AbManifestManager.AbManifest.GetAssetBundleSize(abHash);
+            download.downloadedSize = 0;
+            download.progress = 0;
+            _downloads[abHash] = download;
         }
 
-        public static void OnDownloadUpdate(string abName, UnityWebRequest uwr)
+        public static void OnDownloadUpdate(Hash128 abHash, UnityWebRequest uwr)
         {
-            var downloader = _downloaders[abName];
-            if (downloader.contentSize == 0)
-            {
-                string size = uwr.GetResponseHeader("Content-Length");
-                downloader.contentSize = System.Convert.ToUInt64(size);
-            }
-
-            downloader.downloadedSize = uwr.downloadedBytes;
-            if (downloader.contentSize > 0 && downloader.downloadedSize == downloader.contentSize)
-            {
-                downloader.downloadedSize = (ulong) (downloader.downloadedSize * 0.99f);
-            }
-
-            downloader.progress =
-                Mathf.Clamp(
-                    downloader.contentSize == 0
-                        ? uwr.downloadProgress
-                        : (float) downloader.downloadedSize / downloader.contentSize, 0, 0.99f);
+            var download = _downloads[abHash];
+            download.downloadedSize = uwr.downloadedBytes;
+            download.progress = Mathf.Clamp((float) download.downloadedSize / download.contentSize, 0, 0.9999f);
+            _downloads[abHash] = download;
         }
 
-        public static void OnDownloadCompleted(string abName)
+        public static void OnDownloadCompleted(Hash128 abHash)
         {
-            var downloader = _downloaders[abName];
-            downloader.downloadedSize = downloader.contentSize;
-            downloader.progress = 1;
+            var download = _downloads[abHash];
+            download.downloadedSize = download.contentSize;
+            download.progress = 1;
+            _downloads[abHash] = download;
         }
 
         public static float GetContentSize(AbUnit unit = AbUnit.Byte)
         {
             float size = 0;
-            var e = _downloaders.GetEnumerator();
+            var e = _downloads.GetEnumerator();
             while (e.MoveNext())
             {
                 size += e.Current.Value.contentSize;
@@ -94,7 +72,7 @@ namespace ABExplorer.Core
         public static float GetDownloadedSize(AbUnit unit = AbUnit.Byte)
         {
             float size = 0;
-            var e = _downloaders.GetEnumerator();
+            var e = _downloads.GetEnumerator();
             while (e.MoveNext())
             {
                 size += e.Current.Value.downloadedSize;
@@ -125,7 +103,7 @@ namespace ABExplorer.Core
         public static float GetDownloadProgress()
         {
             var downloadProgress = 0f;
-            var e = _downloaders.GetEnumerator();
+            var e = _downloads.GetEnumerator();
             while (e.MoveNext())
             {
                 downloadProgress += e.Current.Value.progress;
@@ -133,9 +111,9 @@ namespace ABExplorer.Core
 
             e.Dispose();
 
-            if (_downloaders.Count > 0)
+            if (_downloads.Count > 0)
             {
-                downloadProgress = downloadProgress / _downloaders.Count;
+                downloadProgress = downloadProgress / _downloads.Count;
             }
 
             if (GetContentSize() > 0)
@@ -151,18 +129,17 @@ namespace ABExplorer.Core
             return Mathf.RoundToInt(GetDownloadProgress() * 100);
         }
 
-        public static void Unload(string abName)
+        public static void Unload(Hash128 abHash)
         {
-            if (_loaders.ContainsKey(abName))
+            if (_loaders.ContainsKey(abHash))
             {
-                _loaders[abName].Dispose();
-                _loaders.Remove(abName);
+                _loaders[abHash].Dispose();
+                _loaders.Remove(abHash);
             }
 
-            if (_downloaders.ContainsKey(abName))
+            if (_downloads.ContainsKey(abHash))
             {
-                _downloaders[abName].Dispose();
-                _downloaders.Remove(abName);
+                _downloads.Remove(abHash);
             }
         }
     }

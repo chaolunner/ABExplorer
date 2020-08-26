@@ -13,7 +13,9 @@ namespace ABExplorer
         private const string AbResourcesName = "AB_Resources";
 
         private static AbResources Instance => _instance ?? (_instance = new AbResources());
-        
+
+        private bool FastMode => AbExplorerSettings.Instance.playMode == PlayMode.FastMode && Application.isEditor;
+
         public static async Task CheckUpdateAsync(Task<bool> updateRequest = null)
         {
             var checkUpdateTask = AbManifestManager.Instance.CheckUpdateAsync();
@@ -35,6 +37,12 @@ namespace ABExplorer
             if (isUpdate)
             {
                 await AbManifestManager.Instance.UpdateAsync();
+                var assetBundles = AbManifestManager.AbManifest.GetAllAssetBundles();
+                for (int i = 0; i < assetBundles.Length; i++)
+                {
+                    var sceneName = assetBundles[i].Substring(0, assetBundles[i].IndexOf('/'));
+                    await AssetBundleManager.Instance.UpdateAbAsync(sceneName, assetBundles[i]);
+                }
             }
             else
             {
@@ -50,13 +58,6 @@ namespace ABExplorer
             return AbLoaderManager.GetDownloadProgress();
         }
 
-        public static AsyncOperationHandle LoadAbAsync(string path)
-        {
-            GetAbNames(path, out var sceneName, out var abName, out _);
-            var handle = new AsyncOperationHandle(AssetBundleManager.Instance.LoadAbAsync(sceneName, abName));
-            return handle;
-        }
-
         public static AsyncOperationHandle<T> LoadAssetAsync<T>(string path, bool isCache = false) where T : Object
         {
             var handle = new AsyncOperationHandle<T>(Instance.LoadAssetAsyncTask<T>(path, isCache));
@@ -66,7 +67,12 @@ namespace ABExplorer
         private async Task<T> LoadAssetAsyncTask<T>(string path, bool isCache = false) where T : Object
         {
             GetAbNames(path, out var sceneName, out var abName, out _);
-            await AssetBundleManager.Instance.LoadAbAsync(sceneName, abName);
+
+            if (!Instance.FastMode)
+            {
+                await AssetBundleManager.Instance.LoadAbAsync(sceneName, abName);
+            }
+
             var task2 = LoadAssetAsyncInternal<T>(path, isCache);
             await task2;
             return task2.Result;
@@ -105,8 +111,7 @@ namespace ABExplorer
             abName = string.Empty;
             assetName = string.Empty;
 
-            var settings = AbExplorerSettings.Instance;
-            if (settings.playMode == PlayMode.FastMode && Application.isEditor)
+            if (Instance.FastMode)
             {
                 GetAllPaths(out _, out _);
                 for (int i = 0; i < _abResAbsolutePaths.Length; i++)
@@ -145,14 +150,11 @@ namespace ABExplorer
         private static Task<T> LoadAssetAsyncInternal<T>(string path, bool isCache = false) where T : Object
         {
             GetAbNames(path, out var sceneName, out var abName, out var assetName);
-            var settings = AbExplorerSettings.Instance;
-            if (settings.playMode == PlayMode.FastMode)
+            if (Instance.FastMode)
             {
-#if UNITY_EDITOR
                 var task = new Task<T>(() => UnityEditor.AssetDatabase.LoadAssetAtPath<T>(assetName));
                 task.RunSynchronously();
                 return task;
-#endif
             }
 
             return AssetBundleManager.Instance.LoadAssetAsync<T>(sceneName, abName, assetName, isCache);

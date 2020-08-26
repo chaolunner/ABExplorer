@@ -5,29 +5,29 @@ using UnityEngine;
 
 namespace ABExplorer
 {
-    public class AssetBundleManager
+    public class AssetBundleManager : System.IDisposable
     {
         private static AssetBundleManager _instance;
         private readonly Dictionary<string, MultiAbLoader> _multiAbLoaders = new Dictionary<string, MultiAbLoader>();
 
         public static AssetBundleManager Instance => _instance ?? (_instance = new AssetBundleManager());
-        
-        public async Task LoadAbAsync(string sceneName, string abName, AbLoadCompleted onLoadCompleted = null)
+
+        public MultiAbLoader GetMultiAbLoader(string sceneName, string abName)
         {
             if (string.IsNullOrEmpty(sceneName) || string.IsNullOrEmpty(abName))
             {
                 var settings = AbExplorerSettings.Instance;
                 if (settings.playMode != PlayMode.FastMode)
                 {
-                    Debug.LogError($"{GetType()}/LoadAsync() sceneName or abName is null, please check it!");
+                    Debug.LogError($"{GetType()}/GetMultiAbLoader() sceneName or abName is null, please check it!");
                 }
 
-                return;
+                return null;
             }
-            
+
             if (!AbManifestManager.AbManifest.HasAssetBundle(abName))
             {
-                return;
+                return null;
             }
 
             if (!_multiAbLoaders.ContainsKey(sceneName))
@@ -35,17 +35,33 @@ namespace ABExplorer
                 _multiAbLoaders.Add(sceneName, new MultiAbLoader(AbManifestManager.AbManifest));
             }
 
-            var loader = _multiAbLoaders[sceneName];
+            return _multiAbLoaders[sceneName];
+        }
+        
+        public async Task UpdateAbAsync(string sceneName, string abName)
+        {
+            var loader = GetMultiAbLoader(sceneName, abName);
+            if (loader != null)
+            {
+                await loader.UpdateAbAsync(abName);
+            }
+            else
+            {
+                Debug.LogError($"{GetType()}/UpdateAbAsync() multiAbLoader is null, please check it!");
+            }
+        }
+
+        public async Task LoadAbAsync(string sceneName, string abName)
+        {
+            var loader = GetMultiAbLoader(sceneName, abName);
             if (loader != null)
             {
                 await loader.LoadAbAsync(abName);
             }
             else
             {
-                Debug.LogError($"{GetType()}/LoadAsync() multiAbLoader is null, please check it!");
+                Debug.LogError($"{GetType()}/LoadAbAsync() multiAbLoader is null, please check it!");
             }
-
-            onLoadCompleted?.Invoke(abName);
         }
 
         public T LoadAsset<T>(string sceneName, string abName, string assetName, bool isCache) where T : Object
@@ -56,7 +72,7 @@ namespace ABExplorer
             }
 
             Debug.LogError(
-                $"{GetType()}/LoadAsset<T>() can't found the scene, can't load assets in the bundle, please check it! sceneName = {sceneName}");
+                $"{GetType()}/LoadAsset<T>() can't found the scene, can't load assets in the asset bundle, please check it! sceneName = {sceneName}");
             return null;
         }
 
@@ -69,7 +85,7 @@ namespace ABExplorer
             }
 
             Debug.LogError(
-                $"{GetType()}/LoadAssetAsync<T>() can't found the scene, can't load assets in the bundle, please check it! sceneName = {sceneName}");
+                $"{GetType()}/LoadAssetAsync<T>() can't found the scene, can't load assets in the asset bundle, please check it! sceneName = {sceneName}");
             return null;
         }
 
@@ -82,13 +98,13 @@ namespace ABExplorer
             else
             {
                 Debug.LogError(
-                    $"{GetType()}/Dispose() can't found the scene, can't dispose assets in the bundle, please check it! sceneName = {sceneName}");
+                    $"{GetType()}/Unload() can't found the scene, can't unload assets in the asset bundle, please check it! sceneName = {sceneName}");
             }
 
             _multiAbLoaders.Remove(sceneName);
         }
 
-        private void OnDestroy()
+        public void Dispose()
         {
             var e = _multiAbLoaders.GetEnumerator();
             while (e.MoveNext())

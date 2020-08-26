@@ -18,6 +18,8 @@ namespace ABExplorer.Core
         public AbInfo[] abInfos;
         private Dictionary<Hash128, AbInfo> _abInfoMap;
         [NonSerialized] public AssetBundleManifest manifest;
+        
+        public bool IsValid => manifest != null;
 
         public Dictionary<Hash128, AbInfo> AbInfoMap
         {
@@ -50,6 +52,11 @@ namespace ABExplorer.Core
         public string[] GetAllDependencies(string abName)
         {
             return manifest.GetAllDependencies(abName);
+        }
+
+        public string[] GetAllAssetBundles()
+        {
+            return manifest.GetAllAssetBundles();
         }
 
         public Hash128 GetAssetBundleHash(string abName)

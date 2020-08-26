@@ -9,7 +9,6 @@ namespace ABExplorer.Core
     public class AbLoader : System.IDisposable
     {
         private bool _lock;
-        private bool _done;
         private AssetLoader _assetLoader;
         private readonly AbLoadStart _onLoadStart;
         private readonly AbLoadUpdate _onLoadUpdate;
@@ -19,10 +18,9 @@ namespace ABExplorer.Core
         private readonly string _abCachePath;
         private readonly Hash128 _abHash;
 
-        public AbLoader(string abName, Hash128 abHash = new Hash128(), AbLoadStart onLoadStart = null,
-            AbLoadUpdate onLoadUpdate = null, AbLoadCompleted onLoadCompleted = null)
+        public AbLoader(string abName, Hash128 abHash, AbLoadStart onLoadStart = null, AbLoadUpdate onLoadUpdate = null,
+            AbLoadCompleted onLoadCompleted = null)
         {
-            _assetLoader = null;
             _abName = abName;
             _abHash = abHash;
             _onLoadStart = onLoadStart;
@@ -32,7 +30,58 @@ namespace ABExplorer.Core
             _abCachePath = $"{PathUtility.GetAbCachePath()}/{abHash}";
         }
 
-        public async Task LoadAsync()
+        public async Task UpdateAbAsync()
+        {
+            if (File.Exists(_abCachePath))
+            {
+                return;
+            }
+
+            _lock = true;
+            _onLoadStart?.Invoke(_abHash);
+
+            using (var uwr = UnityWebRequest.Get(_abDownLoadPath))
+            {
+                uwr.SendWebRequest();
+
+                while (!uwr.isDone)
+                {
+                    _onLoadUpdate?.Invoke(_abHash, uwr);
+                    await Task.Yield();
+                }
+
+                if (uwr.isNetworkError || uwr.isHttpError)
+                {
+                    Debug.Log(
+                        $"{GetType()}/LoadAsync() UnityWebRequest download error, please check it! AssetBundle URL: {_abDownLoadPath}, Error Message: {uwr.error}");
+                }
+                else
+                {
+                    var path = Path.GetDirectoryName(_abCachePath);
+                    if (!string.IsNullOrEmpty(path) && !Directory.Exists(path))
+                    {
+                        Directory.CreateDirectory(path);
+                    }
+
+                    try
+                    {
+                        File.WriteAllBytes(_abCachePath, uwr.downloadHandler.data);
+#if UNITY_IOS
+                        UnityEngine.iOS.Device.SetNoBackupFlag(_abCachePath);
+#endif
+                    }
+                    catch (System.Exception e)
+                    {
+                        Debug.LogError(
+                            $"{GetType()}/LoadAsync() failed to save asset bundle, please check it! Cache path: {_abCachePath}, Error Message: {e}");
+                    }
+                }
+            }
+
+            _lock = false;
+        }
+
+        public async Task LoadAbAsync()
         {
             while (_lock)
             {
@@ -41,62 +90,16 @@ namespace ABExplorer.Core
 
             if (_assetLoader != null)
             {
-                _onLoadCompleted?.Invoke(_abName);
+                _onLoadCompleted?.Invoke(_abHash);
                 return;
             }
 
-            if (!File.Exists(_abCachePath))
-            {
-                _lock = true;
-
-                using (var uwr = UnityWebRequest.Get(_abDownLoadPath))
-                {
-                    uwr.SendWebRequest();
-
-                    _onLoadStart?.Invoke(_abName, uwr);
-
-                    while (!uwr.isDone)
-                    {
-                        _onLoadUpdate?.Invoke(_abName, uwr);
-                        await Task.Yield();
-                    }
-
-                    if (uwr.isNetworkError || uwr.isHttpError)
-                    {
-                        Debug.Log(
-                            $"{GetType()}/LoadAsync() UnityWebRequest download error, please check it! AssetBundle URL: {_abDownLoadPath}, Error Message: {uwr.error}");
-                    }
-                    else
-                    {
-                        var path = Path.GetDirectoryName(_abCachePath);
-                        if (!string.IsNullOrEmpty(path) && !Directory.Exists(path))
-                        {
-                            Directory.CreateDirectory(path);
-                        }
-
-                        try
-                        {
-                            File.WriteAllBytes(_abCachePath, uwr.downloadHandler.data);
-#if UNITY_IOS
-                            UnityEngine.iOS.Device.SetNoBackupFlag(_abCachePath);
-#endif
-                        }
-                        catch (System.Exception e)
-                        {
-                            Debug.LogError(
-                                $"{GetType()}/LoadAsync() failed to save asset bundle, please check it! Cache path: {_abCachePath}, Error Message: {e}");
-                        }
-                    }
-                }
-
-                _lock = false;
-            }
+            await UpdateAbAsync();
 
             if (File.Exists(_abCachePath))
             {
-                var bundle = AssetBundle.LoadFromFile(_abCachePath);
-                _assetLoader = new AssetLoader(bundle);
-                _onLoadCompleted?.Invoke(_abName);
+                _assetLoader = new AssetLoader(AssetBundle.LoadFromFile(_abCachePath));
+                _onLoadCompleted?.Invoke(_abHash);
             }
         }
 
@@ -107,7 +110,7 @@ namespace ABExplorer.Core
                 return _assetLoader.LoadAsset<T>(assetName, isCache);
             }
 
-            Debug.LogError($"{GetType()}/LoadAsset<T>() _assetLoader(field) is null, please check it!");
+            Debug.LogError($"{GetType()}/LoadAsset<T>() _assetLoader is null, please check it! assetName: {assetName}");
             return null;
         }
 
@@ -118,7 +121,8 @@ namespace ABExplorer.Core
                 return _assetLoader.LoadAssetAsync<T>(assetName, isCache);
             }
 
-            Debug.LogError($"{GetType()}/LoadAssetAsync<T>() _assetLoader(field) is null, please check it!");
+            Debug.LogError(
+                $"{GetType()}/LoadAssetAsync<T>() _assetLoader is null, please check it! assetName: {assetName}");
             return null;
         }
 
@@ -127,11 +131,14 @@ namespace ABExplorer.Core
             if (_assetLoader != null)
             {
                 _assetLoader.Unload(unloadAllLoadedObjects);
-                _assetLoader = null;
+                if (unloadAllLoadedObjects)
+                {
+                    _assetLoader = null;
+                }
             }
             else
             {
-                Debug.LogError($"{GetType()}/Unload() _assetLoader(field) is null, please check it! abName: {_abName}");
+                Debug.LogError($"{GetType()}/Unload() _assetLoader is null, please check it!");
             }
         }
 
@@ -145,7 +152,7 @@ namespace ABExplorer.Core
             else
             {
                 Debug.LogError(
-                    $"{GetType()}/Dispose() _assetLoader(field) is null, please check it! abName: {_abName}");
+                    $"{GetType()}/Dispose() _assetLoader is null, please check it!");
             }
         }
 
@@ -156,7 +163,7 @@ namespace ABExplorer.Core
                 return _assetLoader.GetAllAssetNames();
             }
 
-            Debug.LogError($"{GetType()}/GetAllAssetNames() _assetLoader(field) is null, please check it!");
+            Debug.LogError($"{GetType()}/GetAllAssetNames() _assetLoader is null, please check it!");
             return null;
         }
     }

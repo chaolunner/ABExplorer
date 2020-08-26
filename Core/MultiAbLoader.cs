@@ -6,83 +6,119 @@ namespace ABExplorer.Core
 {
     public class MultiAbLoader : System.IDisposable
     {
-        private readonly AbManifest _abManifest;
-        private Dictionary<string, AbLoader> _loaders;
-        private Dictionary<string, AbRelation> _relations;
-        private AbLoadCompleted _onLoadCompleted;
+        private AbManifest _abManifest;
+        private Dictionary<Hash128, AbLoader> _loaders;
+        private Dictionary<Hash128, AbRelation> _relations;
 
-        public MultiAbLoader(AbManifest abManifest, AbLoadCompleted onLoadCompleted = null)
+        public MultiAbLoader(AbManifest abManifest)
         {
-            _loaders = new Dictionary<string, AbLoader>();
-            _relations = new Dictionary<string, AbRelation>();
+            _loaders = new Dictionary<Hash128, AbLoader>();
+            _relations = new Dictionary<Hash128, AbRelation>();
             _abManifest = abManifest;
-            _onLoadCompleted = onLoadCompleted;
         }
 
-        public async Task LoadAbAsync(string abName)
+        private async Task ProcessRelationsAsync(string abName)
         {
-            await LoadAbByRecursiveAsync(abName);
-            _onLoadCompleted?.Invoke(abName);
+            await ProcessRelationsByRecursiveAsync(abName);
         }
 
-        private async Task LoadAbByRecursiveAsync(string abName)
+        private async Task ProcessRelationsByRecursiveAsync(string abName)
         {
-            if (_relations == null)
+            var abHash = _abManifest.GetAssetBundleHash(abName);
+
+            if (_relations.ContainsKey(abHash))
             {
                 return;
             }
 
-            if (!_relations.ContainsKey(abName))
-            {
-                _relations.Add(abName, new AbRelation(abName));
-            }
-
-            var relation = _relations[abName];
+            var relation = new AbRelation();
             var dependencies = _abManifest.GetAllDependencies(abName);
             for (int i = 0; i < dependencies.Length; i++)
             {
                 relation.AddDependence(dependencies[i]);
-                await LoadReferenceByRecursiveAsync(dependencies[i], abName);
+                await ProcessRelationsByRecursiveAsync(dependencies[i], abName);
             }
 
-            if (_loaders == null)
-            {
-                return;
-            }
-
-            if (!_loaders.ContainsKey(abName))
-            {
-                _loaders.Add(abName, AbLoaderManager.Create(abName, _abManifest.GetAssetBundleHash(abName)));
-            }
-
-            await _loaders[abName].LoadAsync();
+            _relations.Add(abHash, relation);
         }
 
-        private async Task LoadReferenceByRecursiveAsync(string abName, string refAbName)
+        private async Task ProcessRelationsByRecursiveAsync(string abName, string refAbName)
         {
-            if (_relations == null)
-            {
-                return;
-            }
+            var abHash = _abManifest.GetAssetBundleHash(abName);
 
-            if (_relations.ContainsKey(abName))
+            if (_relations.ContainsKey(abHash))
             {
-                _relations[abName].AddReference(refAbName);
+                _relations[abHash].AddReference(refAbName);
             }
             else
             {
-                var relation = new AbRelation(abName);
+                var relation = new AbRelation();
                 relation.AddReference(refAbName);
-                _relations.Add(abName, relation);
-                await LoadAbByRecursiveAsync(abName);
+                _relations.Add(abHash, relation);
+                await ProcessRelationsByRecursiveAsync(abName);
+            }
+        }
+
+        public async Task UpdateAbAsync(string abName)
+        {
+            var abHash = _abManifest.GetAssetBundleHash(abName);
+            
+            if (_loaders.ContainsKey(abHash))
+            {
+                await _loaders[abHash].UpdateAbAsync();
+                return;
+            }
+            
+            await ProcessRelationsAsync(abName);
+            
+            if (_relations.ContainsKey(abHash))
+            {
+                var relation = _relations[abHash];
+                var dependencies = relation.GetAllDependence();
+                for (int i = 0; i < dependencies.Count; i++)
+                {
+                    await LoadAbAsync(dependencies[i]);
+                }
+
+                var loader = AbLoaderManager.Create(abName, abHash);
+                await loader.UpdateAbAsync();
+                _loaders.Add(abHash, loader);
+            }
+        }
+
+        public async Task LoadAbAsync(string abName)
+        {
+            var abHash = _abManifest.GetAssetBundleHash(abName);
+
+            if (_loaders.ContainsKey(abHash))
+            {
+                await _loaders[abHash].LoadAbAsync();
+                return;
+            }
+
+            await ProcessRelationsAsync(abName);
+
+            if (_relations.ContainsKey(abHash))
+            {
+                var relation = _relations[abHash];
+                var dependencies = relation.GetAllDependence();
+                for (int i = 0; i < dependencies.Count; i++)
+                {
+                    await LoadAbAsync(dependencies[i]);
+                }
+
+                var loader = AbLoaderManager.Create(abName, abHash);
+                await loader.LoadAbAsync();
+                _loaders.Add(abHash, loader);
             }
         }
 
         public T LoadAsset<T>(string abName, string assetName, bool isCache) where T : Object
         {
-            if (_loaders.ContainsKey(abName))
+            var abHash = _abManifest.GetAssetBundleHash(abName);
+            if (_loaders.ContainsKey(abHash))
             {
-                return _loaders[abName].LoadAsset<T>(assetName, isCache);
+                return _loaders[abHash].LoadAsset<T>(assetName, isCache);
             }
 
             Debug.LogError(
@@ -92,9 +128,10 @@ namespace ABExplorer.Core
 
         public Task<T> LoadAssetAsync<T>(string abName, string assetName, bool isCache) where T : Object
         {
-            if (_loaders.ContainsKey(abName))
+            var abHash = _abManifest.GetAssetBundleHash(abName);
+            if (_loaders.ContainsKey(abHash))
             {
-                return _loaders[abName].LoadAssetAsync<T>(assetName, isCache);
+                return _loaders[abHash].LoadAssetAsync<T>(assetName, isCache);
             }
 
             Debug.LogError(
@@ -120,7 +157,6 @@ namespace ABExplorer.Core
                 _loaders = null;
                 _relations.Clear();
                 _relations = null;
-                _onLoadCompleted = null;
             }
         }
     }

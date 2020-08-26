@@ -1,16 +1,19 @@
-﻿using UnityEngine.Networking;
+﻿using UnityEngine;
+using UnityEngine.Networking;
 
 namespace ABExplorer.Core
 {
-    public delegate void AbLoadStart(string abName, UnityWebRequest uwr);
-    public delegate void AbLoadUpdate(string abName, UnityWebRequest uwr);
-    public delegate void AbLoadCompleted(string abName);
+    public delegate void AbLoadStart(Hash128 abHash);
+
+    public delegate void AbLoadUpdate(Hash128 abHash, UnityWebRequest uwr);
+
+    public delegate void AbLoadCompleted(Hash128 abHash);
 
     public static class AbDefine
     {
         public static string assetbundleManifest = "AssetBundleManifest";
     }
-    
+
     public enum AbUnit
     {
         Byte = 0,
