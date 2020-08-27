@@ -15,6 +15,7 @@ namespace ABExplorer.Core
         private readonly string _manifestRemotePath;
         private readonly string _manifestLocalPath;
         private AbManifest _abManifest;
+
         public static AbManifest AbManifest => Instance._abManifest;
 
         private static AbManifestManager _instance;
@@ -91,6 +92,7 @@ namespace ABExplorer.Core
             {
                 File.Move(_tempPath, _localPath);
             }
+
             await DownloadFileAsync(_manifestRemotePath, _manifestLocalPath);
             await LoadAsync();
         }
@@ -119,9 +121,9 @@ namespace ABExplorer.Core
             {
                 var abCreateRequest = AssetBundle.LoadFromFileAsync(_manifestLocalPath);
                 await abCreateRequest;
-                var ab = abCreateRequest.assetBundle;
+                var assetBundle = abCreateRequest.assetBundle;
                 var abManifest = _abManifest;
-                abManifest.manifest = ab.LoadAsset(AbDefine.assetbundleManifest) as AssetBundleManifest;
+                abManifest.manifest = assetBundle.LoadAsset(AbDefine.assetbundleManifest) as AssetBundleManifest;
                 _abManifest = abManifest;
             }
         }

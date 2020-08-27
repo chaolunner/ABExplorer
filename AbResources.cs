@@ -18,10 +18,10 @@ namespace ABExplorer
 
         public static async Task CheckUpdateAsync(Task<bool> updateRequest = null)
         {
-            var checkUpdateTask = AbManifestManager.Instance.CheckUpdateAsync();
-            await checkUpdateTask;
+            var task = AbManifestManager.Instance.CheckUpdateAsync();
+            await task;
             var isUpdate = false;
-            if (checkUpdateTask.Result == AbUpdateMode.Remind)
+            if (task.Result == AbUpdateMode.Remind)
             {
                 if (updateRequest != null)
                 {
@@ -29,7 +29,7 @@ namespace ABExplorer
                     isUpdate = updateRequest.Result;
                 }
             }
-            else if (checkUpdateTask.Result == AbUpdateMode.Force)
+            else if (task.Result == AbUpdateMode.Force)
             {
                 isUpdate = true;
             }
@@ -38,10 +38,29 @@ namespace ABExplorer
             {
                 await AbManifestManager.Instance.UpdateAsync();
                 var assetBundles = AbManifestManager.AbManifest.GetAllAssetBundles();
+                var tasks = new Task[assetBundles.Length];
+                var abManifest = AbManifestManager.AbManifest;
                 for (int i = 0; i < assetBundles.Length; i++)
                 {
-                    var sceneName = assetBundles[i].Substring(0, assetBundles[i].IndexOf('/'));
-                    await AssetBundleManager.Instance.UpdateAbAsync(sceneName, assetBundles[i]);
+                    var loader =
+                        AbLoaderManager.Create(assetBundles[i], abManifest.GetAssetBundleHash(assetBundles[i]));
+                    tasks[i] = loader.UpdateAbAsync();
+                }
+
+                int index = tasks.Length - 1;
+                while (index >= 0)
+                {
+                    if (tasks[index].IsCompleted || tasks[index].IsCanceled || tasks[index].IsFaulted)
+                    {
+                        index--;
+                    }
+
+                    await Task.Yield();
+                }
+
+                for (int i = 0; i < assetBundles.Length; i++)
+                {
+                    AbLoaderManager.Unload(abManifest.GetAssetBundleHash(assetBundles[i]));
                 }
             }
             else
@@ -60,22 +79,46 @@ namespace ABExplorer
 
         public static AsyncOperationHandle<T> LoadAssetAsync<T>(string path, bool isCache = false) where T : Object
         {
-            var handle = new AsyncOperationHandle<T>(Instance.LoadAssetAsyncTask<T>(path, isCache));
+            var handle = new AsyncOperationHandle<T>(Instance.LoadAssetAsyncInternal<T>(path, isCache));
             return handle;
         }
 
-        private async Task<T> LoadAssetAsyncTask<T>(string path, bool isCache = false) where T : Object
+        private async Task<T> LoadAssetAsyncInternal<T>(string path, bool isCache = false) where T : Object
         {
-            GetAbNames(path, out var sceneName, out var abName, out _);
+            if (!AbManifestManager.AbManifest.IsValid)
+            {
+                var task = AbManifestManager.Instance.CheckUpdateAsync();
+                await task;
+                if (task.Result == AbUpdateMode.Force)
+                {
+                    await AbManifestManager.Instance.UpdateAsync();
+                }
+                else
+                {
+                    await AbManifestManager.Instance.LoadAsync();
+                }
+            }
+
+            GetAbNames(path, out var sceneName, out var abName, out var assetName);
 
             if (!Instance.FastMode)
             {
                 await AssetBundleManager.Instance.LoadAbAsync(sceneName, abName);
             }
 
-            var task2 = LoadAssetAsyncInternal<T>(path, isCache);
-            await task2;
-            return task2.Result;
+#if UNITY_EDITOR
+            if (Instance.FastMode)
+            {
+                var task = new Task<T>(() => UnityEditor.AssetDatabase.LoadAssetAtPath<T>(assetName));
+                task.RunSynchronously();
+                return task.Result;
+            }
+#endif
+            {
+                var task = AssetBundleManager.Instance.LoadAssetAsync<T>(sceneName, abName, assetName, isCache);
+                await task;
+                return task.Result;
+            }
         }
 
         public static void Unload(string sceneName)
@@ -145,19 +188,6 @@ namespace ABExplorer
                     assetName = names[0];
                 }
             }
-        }
-
-        private static Task<T> LoadAssetAsyncInternal<T>(string path, bool isCache = false) where T : Object
-        {
-            GetAbNames(path, out var sceneName, out var abName, out var assetName);
-            if (Instance.FastMode)
-            {
-                var task = new Task<T>(() => UnityEditor.AssetDatabase.LoadAssetAtPath<T>(assetName));
-                task.RunSynchronously();
-                return task;
-            }
-
-            return AssetBundleManager.Instance.LoadAssetAsync<T>(sceneName, abName, assetName, isCache);
         }
     }
 }

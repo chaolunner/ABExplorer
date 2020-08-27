@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace ABExplorer
 {
-    public class AssetBundleManager : System.IDisposable
+    public class AssetBundleManager
     {
         private static AssetBundleManager _instance;
         private readonly Dictionary<string, MultiAbLoader> _multiAbLoaders = new Dictionary<string, MultiAbLoader>();
@@ -38,19 +38,6 @@ namespace ABExplorer
             return _multiAbLoaders[sceneName];
         }
         
-        public async Task UpdateAbAsync(string sceneName, string abName)
-        {
-            var loader = GetMultiAbLoader(sceneName, abName);
-            if (loader != null)
-            {
-                await loader.UpdateAbAsync(abName);
-            }
-            else
-            {
-                Debug.LogError($"{GetType()}/UpdateAbAsync() multiAbLoader is null, please check it!");
-            }
-        }
-
         public async Task LoadAbAsync(string sceneName, string abName)
         {
             var loader = GetMultiAbLoader(sceneName, abName);
@@ -104,7 +91,7 @@ namespace ABExplorer
             _multiAbLoaders.Remove(sceneName);
         }
 
-        public void Dispose()
+        public void UnloadAll()
         {
             var e = _multiAbLoaders.GetEnumerator();
             while (e.MoveNext())

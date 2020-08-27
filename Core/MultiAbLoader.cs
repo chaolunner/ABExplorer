@@ -17,12 +17,7 @@ namespace ABExplorer.Core
             _abManifest = abManifest;
         }
 
-        private async Task ProcessRelationsAsync(string abName)
-        {
-            await ProcessRelationsByRecursiveAsync(abName);
-        }
-
-        private async Task ProcessRelationsByRecursiveAsync(string abName)
+        private void HandleRelationsByRecursive(string abName)
         {
             var abHash = _abManifest.GetAssetBundleHash(abName);
 
@@ -36,13 +31,13 @@ namespace ABExplorer.Core
             for (int i = 0; i < dependencies.Length; i++)
             {
                 relation.AddDependence(dependencies[i]);
-                await ProcessRelationsByRecursiveAsync(dependencies[i], abName);
+                HandleRelationsByRecursive(dependencies[i], abName);
             }
 
             _relations.Add(abHash, relation);
         }
 
-        private async Task ProcessRelationsByRecursiveAsync(string abName, string refAbName)
+        private void HandleRelationsByRecursive(string abName, string refAbName)
         {
             var abHash = _abManifest.GetAssetBundleHash(abName);
 
@@ -55,34 +50,7 @@ namespace ABExplorer.Core
                 var relation = new AbRelation();
                 relation.AddReference(refAbName);
                 _relations.Add(abHash, relation);
-                await ProcessRelationsByRecursiveAsync(abName);
-            }
-        }
-
-        public async Task UpdateAbAsync(string abName)
-        {
-            var abHash = _abManifest.GetAssetBundleHash(abName);
-            
-            if (_loaders.ContainsKey(abHash))
-            {
-                await _loaders[abHash].UpdateAbAsync();
-                return;
-            }
-            
-            await ProcessRelationsAsync(abName);
-            
-            if (_relations.ContainsKey(abHash))
-            {
-                var relation = _relations[abHash];
-                var dependencies = relation.GetAllDependence();
-                for (int i = 0; i < dependencies.Count; i++)
-                {
-                    await LoadAbAsync(dependencies[i]);
-                }
-
-                var loader = AbLoaderManager.Create(abName, abHash);
-                await loader.UpdateAbAsync();
-                _loaders.Add(abHash, loader);
+                HandleRelationsByRecursive(abName);
             }
         }
 
@@ -96,7 +64,7 @@ namespace ABExplorer.Core
                 return;
             }
 
-            await ProcessRelationsAsync(abName);
+            HandleRelationsByRecursive(abName);
 
             if (_relations.ContainsKey(abHash))
             {

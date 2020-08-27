@@ -149,11 +149,6 @@ namespace ABExplorer.Core
                 _assetLoader.Dispose();
                 _assetLoader = null;
             }
-            else
-            {
-                Debug.LogError(
-                    $"{GetType()}/Dispose() _assetLoader is null, please check it!");
-            }
         }
 
         public string[] GetAllAssetNames()
